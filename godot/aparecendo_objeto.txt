@@ -1,0 +1,53 @@
+/*
+Shader da Godot Shaders - a biblioteca de shaders gratuitos.
+godotshaders.com/shader/teleport-effect
+
+Este shader está sob a licença CC0. Sinta-se à vontade para usar, melhorar e 
+alterar este shader de acordo com suas necessidades e considere compartilhar 
+o resultado modificado em godotshaders.com.
+*/
+
+shader_type canvas_item; // Define que o shader é usado em elementos de interface 2D.
+
+uniform float progress : hint_range(0.0, 1.0); // Variável uniforme para o progresso do efeito, variando de 0 a 1.
+uniform float noise_density = 60; // Variável uniforme para a densidade do ruído, controlando a quantidade de ruído.
+uniform float beam_size : hint_range(0.01, 0.15); // Variável uniforme para o tamanho do feixe, variando de 0.01 a 0.15.
+uniform vec4 color : hint_color = vec4(0.0, 1.02, 1.2, 1.0); // Cor do efeito do shader (vermelho, verde, azul, alfa).
+
+// Função para gerar um valor aleatório baseado nas coordenadas de textura (uv).
+vec2 random(vec2 uv) {
+    // Calcula dois valores diferentes baseados nas coordenadas (uv) para gerar um ruído pseudo-aleatório.
+    uv = vec2(dot(uv, vec2(127.1, 311.7)),
+              dot(uv, vec2(269.5, 183.3)));
+    return -1.0 + 2.0 * fract(sin(uv) * 43758.5453123); // Retorna um valor aleatório entre -1 e 1.
+}
+
+// Função para calcular o valor de ruído baseado nas coordenadas de textura (uv).
+float noise(vec2 uv) {
+    vec2 uv_index = floor(uv); // Obtém a parte inteira das coordenadas (uv).
+    vec2 uv_fract = fract(uv); // Obtém a parte fracionária das coordenadas (uv).
+
+    vec2 blur = smoothstep(0.0, 1.0, uv_fract); // Cria um efeito de suavização para o ruído.
+
+    // Interpola os valores de ruído para criar um efeito de suavização.
+    return mix(mix(dot(random(uv_index + vec2(0.0, 0.0)), uv_fract - vec2(0.0, 0.0)),
+                   dot(random(uv_index + vec2(1.0, 0.0)), uv_fract - vec2(1.0, 0.0)), blur.x),
+               mix(dot(random(uv_index + vec2(0.0, 1.0)), uv_fract - vec2(0.0, 1.0)),
+                   dot(random(uv_index + vec2(1.0, 1.0)), uv_fract - vec2(1.0, 1.0)), blur.x), blur.y) * 0.5 + 0.5;
+}
+
+void fragment() {
+    vec4 tex = texture(TEXTURE, UV); // Obtém a cor do pixel atual da textura usando as coordenadas UV.
+    
+    float n = noise(UV * noise_density) * UV.y; // Calcula o valor de ruído para o pixel atual.
+
+    float d1 = step(progress, n); // Verifica se o valor de ruído é maior ou igual ao progresso.
+    float d2 = step(progress - beam_size, n); // Verifica se o valor de ruído é maior ou igual ao progresso menos o tamanho do feixe.
+    
+    vec3 beam = vec3(d2 - d1) * color.rgb; // Calcula a cor do feixe com base na diferença entre d2 e d1 e na cor do shader.
+    
+    tex.rgb += beam; // Adiciona a cor do feixe à cor do pixel.
+    tex.a *= d2; // Ajusta a opacidade do pixel com base no valor d2.
+    
+    COLOR = tex; // Define a cor final do pixel com base na cor ajustada.
+}
